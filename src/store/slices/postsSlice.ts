@@ -1,11 +1,9 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { Post } from "../../services/posts";
+import type { PostDetails, PostListItem } from "@/types";
 
 interface PostsState {
-    posts: Post[];
-    currentPost: Post | null;
-    currentPostLikes: number;
-    currentPostIsLiked: boolean;
+    posts: PostListItem[];
+    currentPost: PostDetails | null;
     loading: boolean;
     error: string | null;
     totalPages: number;
@@ -14,8 +12,6 @@ interface PostsState {
 const initialState: PostsState = {
     posts: [],
     currentPost: null,
-    currentPostLikes: 0,
-    currentPostIsLiked: false,
     loading: false,
     error: null,
     totalPages: 1,
@@ -25,30 +21,29 @@ const postsSlice = createSlice({
     name: 'posts',
     initialState,
     reducers: {
-        setPosts: (state, action: PayloadAction<{ posts: Post[]; totalPages: number }>) => {
+        setPosts: (state, action: PayloadAction<{ posts: PostListItem[]; totalPages: number }>) => {
             state.posts = action.payload.posts;
             state.totalPages = action.payload.totalPages;
             state.loading = false;
             state.error = null;
         },
-        setCurrentPost: (state, action: PayloadAction<Post>) => {
+        setCurrentPost: (state, action: PayloadAction<PostDetails | null>) => {
             state.currentPost = action.payload;
-            // when setting new current post reset likes info 
-            state.currentPostLikes = 0;
-            state.currentPostIsLiked = false;
             state.loading = false;
         },
-        setPostLikes: (state, action: PayloadAction<{ count: number; isLiked: boolean }>) => {
-            state.currentPostLikes = action.payload.count;
-            state.currentPostIsLiked = action.payload.isLiked;
+        toggleCurrentPostLike: (state, action: PayloadAction<boolean>) => {
+            if (state.currentPost) {
+                const isLiking = action.payload;
+                state.currentPost.user_has_liked = isLiking;
+                state.currentPost.like_count += isLiking ? 1 : -1;
+            }
         },
-        addPost: (state, action: PayloadAction<Post>) => {
+        addPost: (state, action: PayloadAction<PostListItem>) => {
             state.posts.unshift(action.payload);
         },
-        updatePost: (state, action: PayloadAction<Post>) => {
+        updatePost: (state, action: PayloadAction<PostListItem>) => {
             const index = state.posts.findIndex((post) => post.id === action.payload.id);
             if (index !== -1) state.posts[index] = action.payload;
-            if (state.currentPost?.id === action.payload.id) state.currentPost = action.payload;
         },
         deletePost: (state, action: PayloadAction<string>) => {
             state.posts = state.posts.filter((post) => post.id !== action.payload);
@@ -64,14 +59,14 @@ const postsSlice = createSlice({
     },
 });
 
-export const { 
-    setPosts, 
-    setCurrentPost, 
-    addPost, 
-    updatePost, 
+export const {
+    setPosts,
+    setCurrentPost,
+    addPost,
+    updatePost,
     deletePost,
-    setPostLikes, 
-    setLoading, 
-    setError 
+    toggleCurrentPostLike,
+    setLoading,
+    setError
 } = postsSlice.actions;
 export default postsSlice.reducer;

@@ -1,30 +1,34 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from "@/components/ui/Textarea";
 import { Label } from "@/components/ui/Label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/Card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Upload, Save } from "lucide-react";
 import toast from "react-hot-toast";
 
-export const Profile = () => {
+export const ProfileSettings = () => {
     // Get the user and profile from the Redux store
     const { user, profile } = useSelector((state: RootState) => state.auth);
-    const { updateProfile } = useAuth();
+    // Get actions from useAuth hook
+    const { updateProfile, uploadAvatar } = useAuth();
 
     // Initialize state from profile slice data
     const [displayName, setDisplayName] = useState("");
     const [bio, setBio] = useState("");
     const [avatarUrl, setAvatarUrl] = useState("");
-    const [loading, setLoading] = useState(false);
 
-    // for file upload
-    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+
+
+    const [isSaving, setIsSaving] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (profile) {
@@ -39,32 +43,48 @@ export const Profile = () => {
         if (!name) return "U";
         return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
     };
-    const initials = getInitials(displayName || user?.email);
+    const initials = getInitials(displayName || profile?.username);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
+        if (!user) return;
 
-        // Define the profile update object
-        const updates = {
-            display_name: displayName,
-            bio,
-            avatar_url: avatarUrl
-        };
+        setIsSaving(true);
+        const updates = { display_name: displayName, bio };
 
         try {
-            await updateProfile(user!.id, updates);
+            await updateProfile(user.id, updates);
             toast.success("Profile updated successfully!");
         } catch (error) {
             console.error(error);
             toast.error("Failed to update profile.");
         } finally {
-            setLoading(false);
+            setIsSaving(false);
         }
     };
 
-    if (!user) {
-        return <p className="text-destructive text-center mt-10">You must be logged in to view this page.</p>;
+    const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !user) return;
+
+        setIsUploading(true);
+        try {
+            const newUrl = await uploadAvatar(user.id, file);
+            setAvatarUrl(newUrl);
+            toast.success("Avatar updated successfully!");
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to upload avatar.");
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
+        }
+    };
+
+    if (!user || !profile) {
+        return <div className="flex justify-center py-10"><LoadingSpinner /></div>;
     }
 
     return (
@@ -74,46 +94,49 @@ export const Profile = () => {
                     <CardTitle className="text-3xl font-bold">Your Profile</CardTitle>
                     <CardDescription>Update your public information, including your display name and bio.</CardDescription>
                 </CardHeader>
+
+                {/* Avatar Section */}
+                <CardContent className="space-y-2">
+                    <Label className="text-md font-bold">Avatar</Label>
+                    <div className="flex items-center gap-6">
+                        <Avatar className="size-20 shadow-md border-2 border-primary/50">
+                            <AvatarImage src={avatarUrl || undefined} alt={displayName} />
+                            <AvatarFallback className="text-xl">{initials}</AvatarFallback>
+                        </Avatar>
+
+                        <Input
+                            id="avatar-upload"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleAvatarChange}
+                            ref={fileInputRef}
+                            disabled={isUploading}
+                            className="hidden"
+                        />
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            icon={isUploading ? undefined : Upload}
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploading}
+                        >
+                            {isUploading ? <LoadingSpinner size="sm" /> : "Upload New Avatar"}
+                        </Button>
+                    </div>
+                </CardContent>
+
                 <form onSubmit={handleSubmit}>
                     <CardContent className="space-y-6">
-                        {/* Avatar Section */}
-                        <div className="flex items-center gap-6">
-                            <Avatar className="size-20 shadow-md border-2 border-primary/50">
-                                <AvatarImage src={avatarUrl || undefined} alt={displayName} />
-                                <AvatarFallback className="text-xl">{initials}</AvatarFallback>
-                            </Avatar>
-                            <div className="space-y-2">
-                                <p className="font-semibold">{displayName || user.email}</p>
-                                <Input
-                                    id="avatar-url"
-                                    placeholder="Paste image URL or upload..."
-                                    type="file"
-                                    value={avatarUrl}
-                                    onChange={(e) => setAvatarUrl(e.target.value)}
-                                    disabled={loading}
-                                    className="h-12"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    size="sm"
-                                    icon={Upload}
-                                    disabled
-                                >
-                                    Upload New Avatar
-                                </Button>
-                            </div>
-                        </div>
-
                         {/* Display Name */}
                         <div>
                             <Label htmlFor="display-name" className="text-md font-bold mb-2">Display Name</Label>
                             <Input
                                 id="display-name"
-                                placeholder="e.g., The Tech Enthusiast"
+                                placeholder="Your public display name"
                                 value={displayName}
                                 onChange={(e) => setDisplayName(e.target.value)}
-                                disabled={loading}
+                                disabled={isSaving}
                                 className="h-12"
                             />
                         </div>
@@ -126,20 +149,20 @@ export const Profile = () => {
                                 placeholder="Tell us a little about yourself..."
                                 value={bio}
                                 onChange={(e) => setBio(e.target.value)}
-                                disabled={loading}
+                                disabled={isSaving}
                                 rows={4}
                                 maxLength={160}
                             />
                         </div>
                     </CardContent>
-                    <CardFooter className=" flex justify-center">
+                    <CardFooter className=" flex justify-end">
                         <Button
                             type="submit"
-                            disabled={loading || !displayName}
-                            icon={loading ? undefined : Save}
+                            disabled={isSaving || isUploading || !displayName}
+                            icon={isSaving ? undefined : Save}
                             className="h-12"
                         >
-                            {loading ? <LoadingSpinner size="sm" /> : "Save Changes"}
+                            {isSaving ? <LoadingSpinner size="sm" /> : "Save Changes"}
                         </Button>
                     </CardFooter>
                 </form>

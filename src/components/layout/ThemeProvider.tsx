@@ -7,11 +7,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
     useEffect(() => {
         const root = document.documentElement;
-        if (mode === "dark") {
-            root.classList.add("dark");
-        } else {
-            root.classList.remove("dark");
-        }
+        root.classList.toggle("dark", mode === "dark");
     }, [mode]);
 
     return <>{children}</>;

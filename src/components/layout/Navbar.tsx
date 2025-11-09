@@ -1,12 +1,13 @@
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
-import type { RootState } from "../store";
-import { useAuth } from "../hooks/useAuth";
-import { Button } from "./ui/Button";
+import type { RootState } from "../../store";
+import { useAuth } from "../../hooks/useAuth";
+import { Button } from "../ui/Button";
 import { PlusCircle } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserAvatarMenu } from "./UserAvatarMenu";
 import { MobileMenu } from "./MobileMenu";
+import { NotificationBell } from "./NotificationBell";
 import toast from 'react-hot-toast';
 
 export const Navbar = () => {
@@ -24,26 +25,29 @@ export const Navbar = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur-sm">
-      <div className="container mx-auto h-16 flex justify-between items-center px-4 md:px-6">
+    <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* File Menu (Left Side) */}
         <MobileMenu handleSignOut={handleSignOut} />
 
         {/* Logo/Brand */}
-        <Link to="/" className="text-2xl font-extrabold tracking-tight text-primary">
-          My<span className="text-foreground">Blog</span>
+        <Link to="/" className="text-2xl font-bold tracking-tight">
+          Neo<span className="text-primary">Blog</span>
         </Link>
 
         {/* Desktop Nav and User Actions (Right Side) */}
-        <div className="flex items-center space-x-4 md:space-x-6">
+        <nav className="flex items-center gap-2 md:gap-3">
           {/* Desktop Create Post Button */}
           {user && (
-            <Link to="/posts/create" className="hidden lg:inline-flex">
-              <Button variant="default" size="sm" icon={PlusCircle}>
-                Create Post
+            <Link to="/posts/create" className="hidden md:block">
+              <Button size="sm" icon={PlusCircle}>
+                Create
               </Button>
             </Link>
           )}
+
+          {/* Notification Bell */}
+          {user && <NotificationBell />}
 
           {/* Theme Toggle */}
           <ThemeToggle />
@@ -52,13 +56,11 @@ export const Navbar = () => {
           {user ? (
             <UserAvatarMenu handleSignOut={handleSignOut} />
           ) : (
-            <div className="hidden lg:block">
-              <Link to="/auth">
-                <Button variant="default" size="sm">Sign In</Button>
-              </Link>
-            </div>
+            <Link to="/auth" className="hidden md:block">
+              <Button size="sm">Sign In</Button>
+            </Link>
           )}
-        </div>
+        </nav>
       </div>
     </header>
   );

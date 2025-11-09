@@ -1,36 +1,7 @@
 import { supabase } from "@/lib/supabase";
 
-interface LikeStatus {
-    isLiked: boolean;
-    likeCount: number;
-}
-
-// Get like status and count for a specific post
-export const getLikeStatus = async (postId: string, userId: string): Promise<LikeStatus> => {
-    // 1. Get total likes count
-    const { count: likeCount, error: countError } = await supabase
-        .from('post_likes')
-        .select('*', { count: 'exact' })
-        .eq('post_id', postId);
-    
-    if (countError) throw countError;
-
-    // 2. Check if the current user has liked it
-    const { data: userData, error: userError } = await supabase
-        .from('post_likes')
-        .select('user_id')
-        .match({ post_id: postId, user_id: userId })
-        .maybeSingle();
-    
-    if (userError) throw userError;
-
-    return {
-        isLiked: !!userData,
-        likeCount: likeCount || 0,
-    };
-};
-
 // Add a like
+// The 'update_like_count' trigger will handle updating the 'posts' table.
 export const addLike = async (postId: string, userId: string) => {
     const { error } = await supabase
         .from('post_likes')
@@ -39,10 +10,22 @@ export const addLike = async (postId: string, userId: string) => {
 };
 
 // Remove a like
+// The 'update_like_count' trigger will handle updating the 'posts' table.
 export const removeLike = async (postId: string, userId: string) => {
     const { error } = await supabase
         .from('post_likes')
         .delete()
         .match({ post_id: postId, user_id: userId });
     if (error) throw error;
+};
+
+// Check if user has liked a post
+export const hasUserLikedPost = async (postId: string, userId: string): Promise<boolean> => {
+    const { count, error } = await supabase
+        .from('post_likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', postId)
+        .eq('user_id', userId);
+    if (error) throw error;
+    return (count || 0) > 0;
 };

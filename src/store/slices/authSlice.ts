@@ -1,15 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { User } from "@supabase/supabase-js";
-
-export interface Profile {
-    id: string;
-    username: string;
-    display_name: string | null;
-    avatar_url: string | null;
-    bio: string | null;
-    role: 'user';
-    created_at: string;
-}
+import type { Profile } from "@/types";
 
 interface AuthState {
     user: User | null;
@@ -31,7 +22,7 @@ const authSlice = createSlice({
     reducers: {
         setUser: (state, action: PayloadAction<User | null>) => {
             state.user = action.payload;
-            state.loading = false;
+            // state.loading = false;
             state.error = null;
             // when user logs out, clear profile too
             if (!action.payload) {
@@ -40,6 +31,7 @@ const authSlice = createSlice({
         },
         setProfile: (state, action: PayloadAction<Profile | null>) => {
             state.profile = action.payload;
+            // state.loading = false;
         },
         setLoading: (state, action: PayloadAction<boolean>) => {
             state.loading = action.payload;
@@ -48,8 +40,11 @@ const authSlice = createSlice({
             state.error = action.payload;
             state.loading = false;
         },
+        clearError: (state) => {
+            state.error = null;
+        }
     },
 });
 
-export const { setUser, setProfile, setLoading, setError } = authSlice.actions;
+export const { setUser, setProfile, setLoading, setError, clearError } = authSlice.actions;
 export default authSlice.reducer;

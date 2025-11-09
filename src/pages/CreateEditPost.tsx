@@ -1,23 +1,27 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import type { RootState } from "@/store";
 import { supabase } from "@/lib/supabase";
 import { usePosts } from "@/hooks/usePosts";
+import { useCategories } from "@/hooks/useCategories";
+import { useTags } from "@/hooks/useTags";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/Card";
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from "@/components/ui/Textarea";
 import { Label } from "@/components/ui/Label";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Editor, EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from '@tiptap/starter-kit';
 import toast from "react-hot-toast";
-import { Save, FilePenLine, Image as ImageIcon, Tags, ChevronLeft } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/DropdownMenu";
+import { Switch } from "@/components/ui/Switch";
 import {
-  Bold, Italic, Strikethrough, Code, Undo, Redo, List, ListOrdered, Code as CodeIcon, Quote,
-  AlignLeft, Minus, Heading1, Heading2, Heading3
-} from 'lucide-react';
+  Save, FilePenLine, Image as ImageIcon, Tags, ChevronLeft, Bold, Italic, Strikethrough, Code, Undo, Redo,
+  List, Code as CodeIcon, Quote, AlignLeft, Minus, Heading1, Heading2, Heading3, ListOrdered
+} from "lucide-react";
 
 // Menu bar component for the editor
 const MenuBar = ({ editor }: { editor: Editor }) => {
@@ -50,7 +54,6 @@ const MenuBar = ({ editor }: { editor: Editor }) => {
 
   // Determine button variant based on active state
   const getButtonVariant = (isActive: boolean) => isActive ? 'secondary' : 'ghost';
-
   if (!editor) return null;
 
   return (
@@ -58,6 +61,7 @@ const MenuBar = ({ editor }: { editor: Editor }) => {
       <div className="flex flex-wrap justify-start items-center gap-1 border bg-muted/20 dark:bg-muted/40 p-1.5 rounded-md">
         {/* Text Formatting */}
         <Button
+          type="button"
           onClick={() => editor.chain().focus().toggleBold().run()}
           disabled={!editorState.canBold}
           variant={getButtonVariant(editorState.isBold)}
@@ -67,6 +71,7 @@ const MenuBar = ({ editor }: { editor: Editor }) => {
           <Bold className="size-4" />
         </Button>
         <Button
+          type="button"
           onClick={() => editor.chain().focus().toggleItalic().run()}
           disabled={!editorState.canItalic}
           variant={getButtonVariant(editorState.isItalic)}
@@ -76,6 +81,7 @@ const MenuBar = ({ editor }: { editor: Editor }) => {
           <Italic className="size-4" />
         </Button>
         <Button
+          type="button"
           onClick={() => editor.chain().focus().toggleStrike().run()}
           disabled={!editorState.canStrike}
           variant={getButtonVariant(editorState.isStrike)}
@@ -85,6 +91,7 @@ const MenuBar = ({ editor }: { editor: Editor }) => {
           <Strikethrough className="size-4" />
         </Button>
         <Button
+          type="button"
           onClick={() => editor.chain().focus().toggleCode().run()}
           disabled={!editorState.canCode}
           variant={getButtonVariant(editorState.isCode)}
@@ -98,6 +105,7 @@ const MenuBar = ({ editor }: { editor: Editor }) => {
 
         {/* Headings */}
         <Button
+          type="button"
           onClick={() => editor.chain().focus().setParagraph().run()}
           variant={getButtonVariant(editorState.isParagraph)}
           size="icon"
@@ -106,6 +114,7 @@ const MenuBar = ({ editor }: { editor: Editor }) => {
           <AlignLeft className="size-4" />
         </Button>
         <Button
+          type="button"
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
           variant={getButtonVariant(editorState.isHeading1)}
           size="icon"
@@ -114,6 +123,7 @@ const MenuBar = ({ editor }: { editor: Editor }) => {
           <Heading1 className="size-4" />
         </Button>
         <Button
+          type="button"
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           variant={getButtonVariant(editorState.isHeading2)}
           size="icon"
@@ -122,6 +132,7 @@ const MenuBar = ({ editor }: { editor: Editor }) => {
           <Heading2 className="size-4" />
         </Button>
         <Button
+          type="button"
           onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
           variant={getButtonVariant(editorState.isHeading3)}
           size="icon"
@@ -134,6 +145,7 @@ const MenuBar = ({ editor }: { editor: Editor }) => {
 
         {/* Lists and Blocks */}
         <Button
+          type="button"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           variant={getButtonVariant(editorState.isBulletList)}
           size="icon"
@@ -142,6 +154,7 @@ const MenuBar = ({ editor }: { editor: Editor }) => {
           <List className="size-4" />
         </Button>
         <Button
+          type="button"
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           variant={getButtonVariant(editorState.isOrderedList)}
           size="icon"
@@ -150,6 +163,7 @@ const MenuBar = ({ editor }: { editor: Editor }) => {
           <ListOrdered className="size-4" />
         </Button>
         <Button
+          type="button"
           onClick={() => editor.chain().focus().toggleCodeBlock().run()}
           variant={getButtonVariant(editorState.isCodeBlock)}
           size="icon"
@@ -158,6 +172,7 @@ const MenuBar = ({ editor }: { editor: Editor }) => {
           <CodeIcon className="size-4" />
         </Button>
         <Button
+          type="button"
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
           variant={getButtonVariant(editorState.isBlockqoute)}
           size="icon"
@@ -166,6 +181,7 @@ const MenuBar = ({ editor }: { editor: Editor }) => {
           <Quote className="size-4" />
         </Button>
         <Button
+          type="button"
           onClick={() => editor.chain().focus().setHorizontalRule().run()}
           variant="ghost"
           size="icon"
@@ -178,6 +194,7 @@ const MenuBar = ({ editor }: { editor: Editor }) => {
 
         {/* History */}
         <Button
+          type="button"
           onClick={() => editor.chain().focus().undo().run()}
           disabled={!editorState.canUndo}
           variant="ghost"
@@ -187,6 +204,7 @@ const MenuBar = ({ editor }: { editor: Editor }) => {
           <Undo className="size-4" />
         </Button>
         <Button
+          type="button"
           onClick={() => editor.chain().focus().redo().run()}
           disabled={!editorState.canRedo}
           variant="ghost"
@@ -204,8 +222,12 @@ export const CreateEditPost = () => {
   const { id: postId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { currentPost } = useSelector((state: RootState) => state.posts);
-  const { createPost, updatePost } = usePosts();
+
+  const { currentPost, loading: postLoading } = useSelector((state: RootState) => state.posts);
+  const { loadPostById, createPost, updatePost } = usePosts();
+
+  const { categories, loading: categoriesLoading } = useCategories();
+  const { tags, loading: tagsLoading } = useTags();
 
   const isEditMode = !!postId;
 
@@ -215,17 +237,18 @@ export const CreateEditPost = () => {
   const [excerpt, setExcerpt] = useState("");
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
   const [existingImageUrl, setExistingImageUrl] = useState<string>("");
-  const [loading, setLoading] = useState(false);
 
-  // TipTap Editor setup
-  const extensions = [StarterKit];
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  const [loading, setLoading] = useState(false);
+  const [publish, setPublish] = useState(false);
 
   const editor = useEditor({
-    extensions,
-    content: content,
+    extensions: [StarterKit],
+    content: '',
     onUpdate: ({ editor }) => {
-      const html = editor.getHTML();
-      setContent(html);
+      setContent(editor.getHTML());
     },
     editorProps: {
       attributes: {
@@ -233,43 +256,63 @@ export const CreateEditPost = () => {
         class: 'min-h-[400px] h-full p-4 focus:outline-none'
       }
     }
-  }, [isEditMode]);
-
-  const [initialContentLoaded, setInitialContentLoaded] = useState(false);
+  });
 
   useEffect(() => {
-    if (!user) {
-      navigate("/auth", { replace: true });
-      return;
+    if (isEditMode && postId) {
+      loadPostById(postId).catch(() => {
+        toast.error("Could not find post to edit.");
+        navigate("/posts");
+      })
     }
+  }, [isEditMode, postId, loadPostById, navigate]);
 
-    // Only run logic when editor is ready
-    if (!editor) return;
 
-    // Populate fields in Edit Mode
-    if (isEditMode && currentPost && !initialContentLoaded) {
-      // Check if the current user is the author
-      if (user.id !== currentPost.author) {
-        toast.error("You are not authorized to edit this post.");
-        navigate("/posts", { replace: true });
-        return;
+  const postAuthorId = currentPost?.author?.id;
+  // Populates form fields when post data is ready
+  useEffect(() => {
+    if (isEditMode) {
+      // We are editing. Wait for the post to be loaded into Redux.
+      if (currentPost && editor && postId === currentPost.id) {
+        // Check if the current user is the author
+        if (user && user.id !== postAuthorId) {
+          toast.error("You are not authorized to edit this post.");
+          navigate("/posts", { replace: true });
+          return;
+        }
+
+        // Populate all fields from Redux
+        setTitle(currentPost.title);
+        setSlug(currentPost.slug); // Set slug from current post
+        setExcerpt(currentPost.excerpt || '');
+        setExistingImageUrl(currentPost.cover_image || "");
+
+        // 🚀 NEW: Populate category and tags
+        setSelectedCategory(String(currentPost.category_id || ""));
+        // The tags structure from the service is { tags: { id: number, ... } }
+        setSelectedTags(currentPost.tags.map(tagObj => tagObj.tags.name));
+
+        // 🚀 UX FIX: Set editor content only once post is loaded
+        if (editor.getHTML() !== currentPost.content) {
+          editor.commands.setContent(currentPost.content || '');
+          setContent(currentPost.content || ''); // Also update state
+        }
       }
-      setTitle(currentPost.title);
-      setExcerpt(currentPost.excerpt);
-      setContent(currentPost.content);
-      setExistingImageUrl(currentPost.cover_image || "");
-      setInitialContentLoaded(true);
-    } else if (!isEditMode && !initialContentLoaded) {
-      // Clear fields in Create Mode
+    } else {
+      // We are creating. Clear all fields.
       setTitle("");
-      editor.commands.setContent("");
-      setContent("");
+      setSlug("");
       setExcerpt("");
       setExistingImageUrl("");
       setCoverImageFile(null);
-      setInitialContentLoaded(true);
+      setSelectedCategory("");
+      setSelectedTags([]);
+      if (editor) {
+        editor.commands.setContent("");
+      }
+      setContent("");
     }
-  }, [user, postId, currentPost, navigate, initialContentLoaded, editor, isEditMode]);
+  }, [isEditMode, currentPost, editor, user, navigate, postId]);
 
   // Utility: Slug Generator
   const generateSlug = useCallback((title: string) =>
@@ -286,10 +329,16 @@ export const CreateEditPost = () => {
   useEffect(() => {
     if (!isEditMode) {  // Only auto-update slug in create mode
       setSlug(generateSlug(title));
-    } else if (currentPost && !slug) {
-      setSlug(currentPost.slug);  // Initialize slug in edit mode
     }
-  }, [title, generateSlug, isEditMode, currentPost, slug]);
+  }, [title, generateSlug, isEditMode]);
+
+  const handleTagToggle = (tagName: string) => {
+    setSelectedTags(prev =>
+      prev.includes(tagName)
+        ? prev.filter(t => t !== tagName)
+        : [...prev, tagName]
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -313,10 +362,7 @@ export const CreateEditPost = () => {
 
       const { error: uploadError } = await supabase.storage
         .from('post-images')
-        .upload(filePath, coverImageFile, {
-          cacheControl: '3600',
-          upsert: true
-        });
+        .upload(filePath, coverImageFile, { upsert: true });
 
       if (uploadError) {
         toast.error(`Image upload failed: ${uploadError.message}`);
@@ -330,19 +376,23 @@ export const CreateEditPost = () => {
     }
 
     try {
+
+      const categoryId = selectedCategory ? parseInt(selectedCategory) : null;
+
       const postData = {
         title,
-        slug: isEditMode ? slug : generateSlug(title),
+        slug,
         content: finalContent,
         excerpt,
         author: user!.id,
         cover_image: imageUrl,
-        published: true,
+        category_id: categoryId,
+        published: publish,
         featured: false,
       };
 
       if (isEditMode) {
-        await updatePost(postId!, postData);
+        await updatePost(postId!, postData, selectedTags);
         toast.success("Post updated successfully!");
       } else {
         await createPost(postData);
@@ -357,8 +407,12 @@ export const CreateEditPost = () => {
     }
   };
 
-  if (!user) return null;
-  if (!editor || (isEditMode && !initialContentLoaded)) return <div className="flex justify-center items-center h-64"><LoadingSpinner /></div>;
+  // Show main loader while fetching post in edit mode
+  if (isEditMode && postLoading) {
+    return <div className="flex justify-center items-center h-64"><LoadingSpinner /></div>;
+  }
+
+  if (!user || !editor) return <div className="flex justify-center items-center h-64"><LoadingSpinner /></div>;
 
   return (
     <div className="max-w-7xl mx-auto py-8">
@@ -372,9 +426,6 @@ export const CreateEditPost = () => {
             <FilePenLine className="size-6 text-primary" />
             {isEditMode ? "Edit Post" : "Create New Post"}
           </CardTitle>
-          <CardDescription>
-            {isEditMode ? `Editing post ID: ${postId}` : "Start writing a compelling article for your readers."}
-          </CardDescription>
         </CardHeader>
 
         <form onSubmit={handleSubmit}>
@@ -434,17 +485,68 @@ export const CreateEditPost = () => {
                   </p>
                 )}
               </div>
-              {/* Categories/Tags Placeholder */}
-              <div className="pt-4 space-y-2">
-                <Label className="flex items-center gap-1 text-muted-foreground">
-                  <Tags className="size-4" /> Categories & Tags (TODO)
-                </Label>
-                <Input
-                  value="Tech, React, Supabase"
-                  readOnly
-                  className="text-sm italic bg-muted/50"
-                />
+              {/* 🚀 NEW: Categories & Tags Section */}
+              <div className="pt-4 space-y-4">
+                <div>
+                  <Label htmlFor="category-select" className="flex items-center gap-1">
+                    <Tags className="size-4" /> Category
+                  </Label>
+                  <Select
+                    onValueChange={setSelectedCategory}
+                    value={selectedCategory}
+                    disabled={categoriesLoading}
+                  >
+                    <SelectTrigger id="category-select">
+                      <SelectValue placeholder={categoriesLoading ? "Loading..." : "Select a category"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">(No Category)</SelectItem>
+                      {categories.map(cat => (
+                        <SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="flex items-center gap-1">
+                    <Tags className="size-4" /> Tags
+                  </Label>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start font-normal" disabled={tagsLoading}>
+                        {tagsLoading ? "Loading tags..." :
+                          selectedTags.length > 0 ? `Selected (${selectedTags.length})` : "Select tags"}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-64" align="start">
+                      <DropdownMenuLabel>Available Tags</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {tags.map(tag => (
+                        <DropdownMenuCheckboxItem
+                          key={tag.id}
+                          checked={selectedTags.includes(tag.name)}
+                          onCheckedChange={() => handleTagToggle(tag.name)}
+                          onSelect={(e) => e.preventDefault()} // Prevent menu from closing on click
+                        >
+                          {tag.name}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div>
+                  <Label className="flex items-center gap-2">
+                    <Switch
+                      checked={publish}
+                      onCheckedChange={setPublish}
+                    />
+                    Publish Post Immediately
+                  </Label>
+                </div>
               </div>
+
             </div>
 
             {/* Right Column: TipTap Editor (2/3 width) */}
@@ -462,7 +564,7 @@ export const CreateEditPost = () => {
           <CardFooter className="justify-end border-t pt-6">
             <Button
               type="submit"
-              disabled={loading || !editor || !editor.getHTML() || !title}
+              disabled={loading || postLoading || !editor || !title || !excerpt}
               icon={loading ? undefined : Save}
               size="lg"
             >
