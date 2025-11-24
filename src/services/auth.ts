@@ -8,7 +8,6 @@ export const signUp = async (email: string, password: string, username: string) 
         email,
         password,
         options: {
-            // This 'data' is passed to the 'handle_new_user' trigger
             data: { username },
         },
     });
@@ -35,13 +34,14 @@ export const getCurrentUser = async (): Promise<User | null> => {
     return user;
 };
 
-// Get extended profile (for the authenticated user)
+// Get extended profile (matches 'profiles' table)
 export const getExtendedProfile = async (userId: string): Promise<Profile> => {
     const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('*') // Selects all columns defined in your Profile interface
         .eq('id', userId)
         .single();
+
     if (error) throw error;
     return data as Profile;
 };
@@ -49,7 +49,7 @@ export const getExtendedProfile = async (userId: string): Promise<Profile> => {
 // Update profile
 export const updateProfile = async (
     userId: string,
-    updates: { display_name?: string | null; bio?: string | null; avatar_url?: string | null }
+    updates: Partial<Pick<Profile, 'display_name' | 'bio' | 'avatar_url' | 'username'>>
 ): Promise<Profile> => {
     const { data, error } = await supabase
         .from('profiles')
@@ -57,6 +57,7 @@ export const updateProfile = async (
         .eq('id', userId)
         .select()
         .single();
+
     if (error) throw error;
     return data as Profile;
 };
@@ -65,6 +66,7 @@ export const updateProfile = async (
 export const uploadAvatar = async (userId: string, avatarFile: File) => {
     const fileExt = avatarFile.name.split('.').pop();
     const filePath = `${userId}/${Date.now()}.${fileExt}`;
+
     const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, avatarFile, {
@@ -73,10 +75,14 @@ export const uploadAvatar = async (userId: string, avatarFile: File) => {
         });
 
     if (uploadError) throw uploadError;
+
     const { data } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
+
+    // Automatically update the profile with new avatar URL
     await updateProfile(userId, { avatar_url: data.publicUrl });
+
     return data.publicUrl;
 };
 

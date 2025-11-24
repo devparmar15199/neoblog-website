@@ -23,7 +23,7 @@ export const useNotifications = () => {
     const { notifications, unreadCount, loading, error } = useSelector((state: RootState) => state.notifications);
     const userId = useSelector((state: RootState) => state.auth.user?.id);
 
-    // Initial fetch
+    // 1. Initial Fetch
     useEffect(() => {
         if (!userId) {
             dispatch(setNotifications([]));
@@ -31,24 +31,22 @@ export const useNotifications = () => {
             return;
         };
 
-        dispatch(setLoading(true));
-        dispatch(setError(null));
-
         const fetchNotifications = async () => {
+            dispatch(setLoading(true));
             try {
                 const data = await getNotifications(userId);
                 dispatch(setNotifications(data));
             } catch (error: any) {
                 dispatch(setError(error.message || 'Failed to load notifications'));
-                toast.error(error.message || "Failed to load notifications");
             } finally {
                 dispatch(setLoading(false));
             }
         };
+
         fetchNotifications();
     }, [dispatch, userId]);
 
-    // Real-time subscription
+    // 2. Real-time Subscription
     useEffect(() => {
         if (!userId) return;
 
@@ -56,27 +54,37 @@ export const useNotifications = () => {
             const newNotification = payload.new as Notification;
             dispatch(addNotification(newNotification));
 
-            const sender = newNotification.data?.senderUsername;
+            const sender = newNotification.data?.senderUsername || "Someone";
             const type = newNotification.type;
 
             let message = "New notification!";
-            if (type === "new_comment" && sender) {
-                message = `${sender} commented on your post`;
-            } else if (type === "new_like" && sender) {
-                message = `${sender} liked your post`;
+
+            // Custom messages based on type
+            switch (type) {
+                case "new_comment":
+                    message = `${sender} commented on your post`;
+                    break;
+                case "new_like":
+                    message = `${sender} liked your post`;
+                    break;
+                case "new_follower":
+                    message = `${sender} started following you`;
+                    break;
             }
 
             toast.success(message, {
                 duration: 4000,
                 position: 'top-right',
+                icon: '🔔',
             });
         });
 
-        // Cleanup on unmount
         return () => {
             subscription.unsubscribe();
         };
     }, [dispatch, userId]);
+
+    // --- Actions ---
 
     const handleMarkAsRead = useCallback(async (notificationId: string): Promise<void> => {
         dispatch(markAsRead(notificationId));
@@ -90,9 +98,11 @@ export const useNotifications = () => {
 
     const handleMarkAllRead = useCallback(async (): Promise<void> => {
         if (!userId || unreadCount === 0) return;
+
         dispatch(markAllRead());
         try {
             await markAllNotificationsAsRead(userId);
+            toast.success("All marked as read");
         } catch (error: any) {
             const message = error.message || "Failed to mark all as read";
             toast.error(message);

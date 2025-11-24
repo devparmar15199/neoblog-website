@@ -1,7 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import { useSelector } from "react-redux";
-import type { RootState } from "@/store";
+import { Link, useNavigate } from "react-router-dom";
 import { LogOut, Settings, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/Avatar";
 import {
@@ -9,21 +7,25 @@ import {
     DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger
 } from "../ui/DropdownMenu";
 import { Button } from "../ui/Button";
+import { useAuth } from "@/hooks/useAuth";
+import toast from "react-hot-toast";
 
-interface UserAvatarMenuProps {
-    handleSignOut: () => void;
-}
+export const UserAvatarMenu: React.FC = () => {
+    const { profile, signOut } = useAuth();
+    const navigate = useNavigate();
 
-export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({ handleSignOut }) => {
-    const { profile } = useSelector((state: RootState) => state.auth);
+    const handleSignOut = async () => {
+        try {
+            await signOut();
+            toast.success("Signed out successfully!");
+            navigate("/auth");
+        } catch (error) {
+            toast.error("Failed to sign out");
+        }
+    };
 
     const displayName = profile?.display_name || profile?.username || "User";
-    const initials = displayName
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .substring(0, 2)
-        .toUpperCase();
+    const initials = displayName.substring(0, 2).toUpperCase();
 
     return (
         <DropdownMenu>
@@ -35,40 +37,32 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({ handleSignOut })
                             {initials}
                         </AvatarFallback>
                     </Avatar>
-                    <span className="sr-only">User menu</span>
                 </Button>
             </DropdownMenuTrigger>
 
             <DropdownMenuContent className="w-56" align="end">
-                <DropdownMenuLabel className="font-bold">
+                <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                        <p className="font-medium">{displayName}</p>
-                        <p className="text-xs text-muted-foreground">
-                            @{profile?.username}
-                        </p>
+                        <p className="text-sm font-medium leading-none">{displayName}</p>
+                        <p className="text-xs leading-none text-muted-foreground">@{profile?.username}</p>
                     </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-
                 <DropdownMenuGroup>
-                    <DropdownMenuItem asChild>
-                        <Link to="/profile" className="flex items-center">
-                            <User className="mr-2 size-4" />
-                            Profile
+                    <DropdownMenuItem asChild className="cursor-pointer">
+                        <Link to={`/profile/${profile?.username}`}>
+                            <User className="mr-2 size-4" /> Profile
                         </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                        <Link to="/dashboard" className="flex items-center">
-                            <Settings className="mr-2 size-4" />
-                            Dashboard
+                    <DropdownMenuItem asChild className="cursor-pointer">
+                        <Link to="/dashboard">
+                            <Settings className="mr-2 size-4" /> Dashboard
                         </Link>
                     </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-
-                <DropdownMenuItem onClick={handleSignOut} variant="destructive">
-                    <LogOut className="mr-2 size-4" />
-                    Log Out
+                <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600 cursor-pointer">
+                    <LogOut className="mr-2 size-4" /> Log Out
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>

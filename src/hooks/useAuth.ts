@@ -1,4 +1,3 @@
-// src/hooks/useAuth.ts:
 import { useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "@/store";
@@ -20,8 +19,8 @@ import type { Profile } from "@/types";
 export const useAuth = () => {
     const dispatch = useDispatch();
     const { user, profile, loading, error } = useSelector((state: RootState) => state.auth);
-    
-    // 1. Utility function to fetch and set extended profile
+
+    // Utility: Fetch and set extended profile
     const fetchAndSetProfile = useCallback(async (userId: string | null) => {
         if (!userId) {
             dispatch(setProfile(null));
@@ -32,45 +31,41 @@ export const useAuth = () => {
             dispatch(setProfile(profileData));
         } catch (error: any) {
             console.error("Failed to fetch profile:", error);
-            // Only set error, don't change global loading/initialization state
             dispatch(setError(error.message || 'Failed to fetch profile'));
         }
     }, [dispatch]);
 
+    // Initialization Effect
     useEffect(() => {
-        // Only set the initial app loading state here
         const initializeAuth = async () => {
             dispatch(setLoading(true));
             try {
-                // 1. Get current session state (this is synchronous/fast)
+                // 1. Get current session
                 const currentUser = await getCurrentUser();
                 dispatch(setUser(currentUser));
 
-                // 2. If user exists, fetch profile (async)
+                // 2. If user exists, fetch profile
                 if (currentUser) {
-                    await fetchAndSetProfile(currentUser.id); 
+                    await fetchAndSetProfile(currentUser.id);
                 }
             } catch (error: any) {
                 dispatch(setError(error.message || 'Failed to initialize user'));
             } finally {
-                // 3. Critically, set loading to false *only* when the initial check is complete.
                 dispatch(setLoading(false));
             }
         };
 
         initializeAuth();
 
-        // Listener for future auth changes
+        // Supabase Auth Listener
         const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
             const newUser = session?.user ?? null;
-            
             dispatch(setUser(newUser));
 
-            // On sign in/out, we also need to fetch profile/clear profile, 
-            // but we MUST NOT set the global loading state here or it will interfere 
-            // with the AuthPage redirect logic, causing the loop.
             if (newUser) {
-                fetchAndSetProfile(newUser.id);    
+                // If we just logged in, fetch the profile.
+                // Note: We don't trigger global loading here to avoid UI flicker/redirect loops.
+                fetchAndSetProfile(newUser.id);
             } else {
                 dispatch(setProfile(null));
             }
@@ -78,23 +73,23 @@ export const useAuth = () => {
 
         return () => authListener.subscription.unsubscribe();
     }, [dispatch, fetchAndSetProfile]);
-    
-    // --- Handlers (Keep the loading logic for individual actions) ---
+
+    // --- Action Handlers ---
 
     const handleSignIn = async (email: string, password: string) => {
         try {
             dispatch(setError(null));
-            dispatch(setLoading(true)); // Loading for this specific sign-in action
+            dispatch(setLoading(true));
             const result = await signIn(email, password);
             return result;
         } catch (error: any) {
             dispatch(setError(error.message || 'Sign in failed'));
             throw error;
         } finally {
-            dispatch(setLoading(false)); // Clear loading for this specific action
+            dispatch(setLoading(false));
         }
     };
-    
+
     const handleSignUp = async (email: string, password: string, username: string) => {
         try {
             dispatch(setError(null));
@@ -114,6 +109,7 @@ export const useAuth = () => {
             dispatch(setError(null));
             dispatch(setLoading(true));
             await signOut();
+            // State clearing is handled by the onAuthStateChange listener
         } catch (error: any) {
             dispatch(setError(error.message || 'Sign out failed'));
             throw error;
@@ -124,7 +120,7 @@ export const useAuth = () => {
 
     const handleUpdateProfile = async (
         userId: string,
-        updates: { display_name?: string | null; bio?: string | null; avatar_url?: string | null }
+        updates: Partial<Pick<Profile, 'display_name' | 'bio' | 'avatar_url' | 'username'>>
     ): Promise<Profile> => {
         try {
             dispatch(setError(null));
@@ -145,6 +141,7 @@ export const useAuth = () => {
             dispatch(setError(null));
             dispatch(setLoading(true));
             const publicUrl = await uploadAvatar(userId, avatarFile);
+            // Profile is auto-updated in the service, but we refresh local state here
             await fetchAndSetProfile(userId);
             return publicUrl;
         } catch (error: any) {

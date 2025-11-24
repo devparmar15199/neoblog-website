@@ -22,7 +22,6 @@ const authSlice = createSlice({
     reducers: {
         setUser: (state, action: PayloadAction<User | null>) => {
             state.user = action.payload;
-            // state.loading = false;
             state.error = null;
             // when user logs out, clear profile too
             if (!action.payload) {
@@ -31,7 +30,6 @@ const authSlice = createSlice({
         },
         setProfile: (state, action: PayloadAction<Profile | null>) => {
             state.profile = action.payload;
-            // state.loading = false;
         },
         setLoading: (state, action: PayloadAction<boolean>) => {
             state.loading = action.payload;

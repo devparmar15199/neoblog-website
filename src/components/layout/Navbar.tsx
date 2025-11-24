@@ -1,67 +1,92 @@
-import { Link } from "react-router-dom";
-import { useSelector } from "react-redux";
-import type { RootState } from "../../store";
-import { useAuth } from "../../hooks/useAuth";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Search, Menu, PenSquare } from "lucide-react";
 import { Button } from "../ui/Button";
-import { PlusCircle } from "lucide-react";
+import { Input } from "../ui/Input";
+import { useAuth } from "../../hooks/useAuth";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserAvatarMenu } from "./UserAvatarMenu";
-import { MobileMenu } from "./MobileMenu";
 import { NotificationBell } from "./NotificationBell";
-import toast from 'react-hot-toast';
+import { MobileMenu } from "./MobileMenu";
+import { NAV_LINKS } from "@/config/navigation";
 
 export const Navbar = () => {
-  const { user } = useSelector((state: RootState) => state.auth);
-  const { signOut } = useAuth();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      toast.success("Signed out successfully!");
-    } catch (error) {
-      console.error("Sign out failed:", error);
-      toast.error("Sign out failed. Please try again.");
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (search.trim()) {
+      navigate(`/?search=${encodeURIComponent(search)}`);
     }
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        {/* File Menu (Left Side) */}
-        <MobileMenu handleSignOut={handleSignOut} />
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
+      <div className="container flex h-16 items-center justify-between px-4 md:px-8">
 
-        {/* Logo/Brand */}
-        <Link to="/" className="text-2xl font-bold tracking-tight">
-          Neo<span className="text-primary">Blog</span>
+        {/* Logo */}
+        <Link to="/" className="flex items-center space-x-2 font-bold text-xl mr-6">
+          <span className="bg-linear-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+            NeoBlog
+          </span>
         </Link>
 
-        {/* Desktop Nav and User Actions (Right Side) */}
-        <nav className="flex items-center gap-2 md:gap-3">
-          {/* Desktop Create Post Button */}
-          {user && (
-            <Link to="/posts/create" className="hidden md:block">
-              <Button size="sm" icon={PlusCircle}>
-                Create
-              </Button>
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
+          {NAV_LINKS.filter(l => l.showInDesktop).map(link => (
+            <Link key={link.path} to={link.path} className="hover:text-primary transition-colors">
+              {link.name}
             </Link>
-          )}
+          ))}
+        </nav>
 
-          {/* Notification Bell */}
-          {user && <NotificationBell />}
+        {/* Search Bar (Flex-1 to push items to sides) */}
+        <div className="hidden md:flex flex-1 items-center justify-center px-4 max-w-lg mx-auto">
+          <form onSubmit={handleSearch} className="relative w-full">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search posts..."
+              className="pl-9 h-9 w-full bg-muted/50 focus:bg-background transition-colors"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </form>
+        </div>
 
-          {/* Theme Toggle */}
+        {/* Right Actions */}
+        <div className="hidden md:flex items-center space-x-3">
           <ThemeToggle />
 
-          {/* Authentication/Profile */}
           {user ? (
-            <UserAvatarMenu handleSignOut={handleSignOut} />
+            <>
+              <Button variant="outline" size="sm" onClick={() => navigate('/create-post')}>
+                <PenSquare className="mr-2 h-4 w-4" /> Write
+              </Button>
+              <NotificationBell />
+              <UserAvatarMenu />
+            </>
           ) : (
-            <Link to="/auth" className="hidden md:block">
-              <Button size="sm">Sign In</Button>
-            </Link>
+            <>
+              <Button variant="ghost" onClick={() => navigate('/auth?mode=login')}>Log in</Button>
+              <Button onClick={() => navigate('/auth?mode=register')}>Sign up</Button>
+            </>
           )}
-        </nav>
+        </div>
+
+        {/* Mobile Toggle */}
+        <div className="flex md:hidden items-center space-x-2">
+          <ThemeToggle />
+          <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
+            <Menu className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
+
+      <MobileMenu isOpen={isMobileMenuOpen} setIsOpen={setIsMobileMenuOpen} />
     </header>
   );
 };

@@ -13,10 +13,9 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/AlertDialog";
 import {
-    Dialog, DialogContent, DialogDescription, DialogFooter,
+    Dialog, DialogContent, DialogFooter,
     DialogHeader, DialogTitle, DialogTrigger, DialogClose,
-} from "@/components/ui/dialog";
-import { toast } from 'react-hot-toast';
+} from "@/components/ui/Dialog";
 
 // Reusable Form for creating/editing Categories
 const CategoryForm = ({

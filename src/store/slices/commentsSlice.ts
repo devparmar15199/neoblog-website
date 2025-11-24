@@ -1,8 +1,8 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { Comment } from "@/types";
+import type { CommentWithAuthor } from "@/types";
 
 interface CommentsState {
-    comments: Comment[];
+    comments: CommentWithAuthor[];
     loading: boolean;
     error: string | null;
 }
@@ -17,20 +17,23 @@ const commentsSlice = createSlice({
     name: 'comments',
     initialState,
     reducers: {
-        setComments: (state, action: PayloadAction<Comment[]>) => {
+        setComments: (state, action: PayloadAction<CommentWithAuthor[]>) => {
             state.comments = action.payload;
             state.loading = false;
             state.error = null;
         },
-        addComment: (state, action: PayloadAction<Comment>) => {
-            state.comments.push(action.payload);
+        addComment: (state, action: PayloadAction<CommentWithAuthor>) => {
+            // Prevent duplicate adds (Realtime + Optimistic UI often collide)
+            if (state.comments.find(c => c.id === action.payload.id)) {
+                state.comments.push(action.payload);
+            }
         },
-        updateComment: (state, action: PayloadAction<Comment>) => {
-            const index = state.comments.findIndex((comment) => comment.id === action.payload.id);
-            if (index !== -1) state.comments[index] = action.payload;
+        updateComment: (state, action: PayloadAction<Partial<CommentWithAuthor>>) => {
+            const index = state.comments.findIndex((c) => c.id === action.payload.id);
+            if (index !== -1) state.comments[index] = { ...state.comments[index], ...action.payload };
         },
         deleteComment: (state, action: PayloadAction<string>) => {
-            state.comments = state.comments.filter((comment) => comment.id !== action.payload);
+            state.comments = state.comments.filter((c) => c.id !== action.payload);
         },
         setLoading: (state, action: PayloadAction<boolean>) => {
             state.loading = action.payload;

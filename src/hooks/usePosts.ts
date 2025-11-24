@@ -17,9 +17,8 @@ import {
     createPost,
     updatePost as updatePostService,
     deletePost as deletePostService,
-    updatePostTags,
 } from "../services/posts";
-import type { PostDetails, PostListItem, PostInput } from "@/types";
+import type { PostDetails, CreatePostPayload, UpdatePostPayload } from "@/types";
 import toast from "react-hot-toast";
 
 export const usePosts = (
@@ -38,8 +37,10 @@ export const usePosts = (
         error,
         totalPages
     } = useSelector((state: RootState) => state.posts);
+
     const userId = useSelector((state: RootState) => state.auth.user?.id);
 
+    // Fetch List
     useEffect(() => {
         dispatch(setLoading(true));
         dispatch(setError(null));
@@ -76,7 +77,6 @@ export const usePosts = (
         } catch (error: any) {
             const message = error.message || 'Failed to load post';
             dispatch(setError(message));
-            toast.error(message);
             return null;
         } finally {
             dispatch(setLoading(false));
@@ -100,30 +100,15 @@ export const usePosts = (
         }
     }, [dispatch]);
 
+    // Create a new post
     const handleCreatePost = useCallback(async (
-        postInput: PostInput & { author: string },
-        tagIds: string[] = [],
+        postInput: CreatePostPayload,
+        authorId: string,
     ): Promise<PostDetails> => {
         try {
             dispatch(setError(null));
-            const newPost = await createPost(postInput);
-            if (tagIds.length > 0) {
-                await updatePostTags(newPost.id, tagIds);
-            }
-            const postListItem: PostListItem = {
-                id: newPost.id,
-                title: newPost.title,
-                slug: newPost.slug,
-                excerpt: newPost.excerpt,
-                cover_image: newPost.cover_image,
-                created_at: newPost.created_at,
-                like_count: newPost.like_count,
-                comment_count: newPost.comment_count,
-                author: newPost.author,
-                categories: newPost.categories,
-                tags: newPost.tags,
-                user_has_liked: false,
-            };
+            const newPost = await createPost({ ...postInput, author: authorId });
+            const postListItem: any = { ...newPost };
             dispatch(addPost(postListItem));
             toast.success('Post created successfully');
             return newPost;
@@ -135,32 +120,17 @@ export const usePosts = (
         }
     }, [dispatch]);
 
+    // Update an existing post
     const handleUpdatePost = useCallback(async (
         id: string,
-        updates: Partial<PostDetails>,
-        tagIds?: string[]
+        updates: UpdatePostPayload,
     ): Promise<PostDetails> => {
         try {
             dispatch(setError(null));
-            if (tagIds !== undefined) {
-                await updatePostTags(id, tagIds);
-            }
             const updatedPost = await updatePostService(id, updates);
-            const postListItem: PostListItem = {
-                id: updatedPost.id,
-                title: updatedPost.title,
-                slug: updatedPost.slug,
-                excerpt: updatedPost.excerpt,
-                cover_image: updatedPost.cover_image,
-                created_at: updatedPost.created_at,
-                like_count: updatedPost.like_count,
-                comment_count: updatedPost.comment_count,
-                author: updatedPost.author,
-                categories: updatedPost.categories,
-                tags: updatedPost.tags,
-                user_has_liked: currentPost?.id === id ? currentPost.user_has_liked : false,
-            };
-            dispatch(updatePost(postListItem));
+
+            dispatch(updatePost(updatedPost as any));
+
             if (currentPost?.id === id) {
                 dispatch(setCurrentPost(updatedPost));
             }
@@ -174,7 +144,10 @@ export const usePosts = (
         }
     }, [dispatch, currentPost]);
 
+    // Delete a post
     const handleDeletePost = useCallback(async (id: string): Promise<void> => {
+        if (!window.confirm("Are you sure you want to delete this post?")) return;
+
         try {
             dispatch(setError(null));
             await deletePostService(id);
@@ -184,7 +157,6 @@ export const usePosts = (
             const message = error.message || 'Failed to delete post';
             dispatch(setError(message));
             toast.error(message);
-            throw error;
         }
     }, [dispatch]);
 

@@ -1,58 +1,74 @@
 import { supabase } from "@/lib/supabase";
-import type { PostDetails, PostListItem, PostInput } from "@/types";
+import type { PostDetails, CreatePostPayload, UpdatePostPayload, PostListItem } from "@/types";
 import { hasUserLikedPost } from "./likes";
 
-// Helper to map post data to include relations
-const mapPostData = async (post: any, userId?: string): Promise<PostDetails | PostListItem> => {
+// --- HELPER: Data Mapper ---
+// Flattens Supabase joined responses into our clean UI types
+const mapPostData = async (post: any, userId?: string): Promise<PostDetails> => {
     const mapped: any = { ...post };
 
-    // 1. Map the aliased data 'author_profile' to the 'profiles' key
-    mapped.profiles = post.author_profile;
-    // 2. Clean up the temporary key
-    delete mapped.profiles;
-
-    mapped.categories = post.categories;
-    mapped.tags = post.post_tags || [];
-    delete mapped.post_tags;
-
-    if (userId) {
-        mapped.user_has_liked = await hasUserLikedPost(post.id, userId);
+    // 1. Map 'author' (joined data) to 'profiles' to match your Type definition
+    // We asked Supabase to return it as 'author', so we map it to 'profiles'
+    if (mapped.author) {
+        mapped.profiles = mapped.author;
+        delete mapped.author;
     }
+
+    // 2. Flatten Tags
+    if (mapped.post_tags) {
+        mapped.post_tags = mapped.post_tags.map((postTag: any) => ({
+            id: postTag.tags?.id,
+            name: postTag.tags?.name,
+            slug: postTag.tags?.slug
+        })).filter((tag: any) => tag.id);
+    } else {
+        mapped.post_tags = [];
+    }
+
+    // 3. User Context
+    if (userId) {
+        const [liked, bookmarked] = await Promise.all([
+            hasUserLikedPost(post.id, userId),
+            hasUserBookmarkedPost(post.id, userId)
+        ]);
+        mapped.user_has_liked = liked;
+        mapped.user_has_bookmarked = bookmarked;
+    }
+
     return mapped as PostDetails;
 };
 
-// Get paginated posts (published only)
-// export const getPosts = async (
-//     page = 1,
-//     limit = 10,
-//     search = '',
-//     categoryId?: number,
-//     tagId?: number,
-//     userId?: string,
-// ): Promise<{ posts: PostListItem[]; totalPages: number }> => {
-//     let query = supabase
-//         .from('posts')
-//         .select(`
-//             id, title, slug, excerpt, cover_image, created_at, like_count, comment_count,
-//             author_profile:profiles (username, display_name, avatar_url),
-//             categories (name, slug),
-//             post_tags (tags (name, slug))
-//         `, { count: 'exact' })
-//         .eq('published', true)
-//         .order('created_at', { ascending: false })
-//         .range((page - 1) * limit, page * limit - 1);
+// --- BOOKMARKS ---
+// Check if user has bookmarked a post
+export const hasUserBookmarkedPost = async (postId: string, userId: string): Promise<boolean> => {
+    const { count, error } = await supabase
+        .from('bookmarks')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', postId)
+        .eq('user_id', userId);
 
-//     if (search) query = query.ilike('title', `%${search}%`);
-//     if (categoryId) query = query.eq('category_id', categoryId);
-//     if (tagId) query = query.eq('post_tags.tag_id', tagId);
+    if (error) throw error;
+    return (count || 0) > 0;
+};
 
-//     const { data, error, count } = await query;
-//     if (error) throw error;
-//     const posts = await Promise.all((data || []).map((post: any) => mapPostData(post, userId)));
-//     const totalPages = Math.ceil((count || 0) / limit);
-//     return { posts: posts as PostListItem[], totalPages };
-// };
+// Toggle Bookmark status for a post
+export const toggleBookmark = async (postId: string, userId: string, isBookmarked: boolean) => {
+    if (isBookmarked) {
+        const { error } = await supabase
+            .from('bookmarks')
+            .delete()
+            .match({ post_id: postId, user_id: userId });
+        if (error) throw error;
+    } else {
+        const { error } = await supabase
+            .from('bookmarks')
+            .insert({ post_id: postId, user_id: userId });
+        if (error) throw error;
+    }   
+};
 
+// --- READ POSTS ---
+// Get paginated list of published posts with optional filters
 export const getPosts = async (
     page = 1,
     limit = 10,
@@ -61,26 +77,56 @@ export const getPosts = async (
     tagId?: number,
     userId?: string,
 ): Promise<{ posts: PostListItem[]; totalPages: number }> => {
+
+    let postIdsToFetch: string[] | null = null;
+    let totalCount = 0;
+
+    if (search) {
+        const { data: searchResults, error: searchError } = await supabase
+        .rpc('search_posts', { search_term: search });
+        
+        if (searchError) throw searchError;
+        postIdsToFetch = (searchResults || []).map((p: any) => p.id);
+        totalCount = postIdsToFetch?.length || 0;
+    }
+
+    // FIX: Explicitly reference the relationship "author" points to "profiles"
     let query = supabase
         .from('posts')
         .select(`
             *,
-            author (id, username, display_name, avatar_url),
-            categories (name, slug),
-            post_tags (tags (name, slug))
+            author:profiles!posts_author_fkey (id, username, display_name, avatar_url),
+            categories (id, name, slug),
+            post_tags (
+                tags (id, name, slug)
+            )
         `, { count: 'exact' })
-        .eq('published', true)
-        .order('created_at', { ascending: false })
-        .range((page - 1) * limit, page * limit - 1);
+        .eq('published', true);
 
-    if (search) query = query.ilike('title', `%${search}%`);
+    // Apply filters
+    if (postIdsToFetch !== null) {
+        query = query.in('id', postIdsToFetch); // Filter by RPC results
+    } else {
+        query = query.order('created_at', { ascending: false }); // Default sort
+    }
+
     if (categoryId) query = query.eq('category_id', categoryId);
-    if (tagId) query = query.eq('post_tags.tag_id', tagId);
+    if (tagId) {
+        query = query.eq('post_tags.tag_id', tagId);
+    }
+
+    // Pagination
+    const from = (page - 1) * limit;
+    const to = page * limit - 1;
+    query = query.range(from, to);
 
     const { data, error, count } = await query;
     if (error) throw error;
+
+    const finalCount = postIdsToFetch !== null ? totalCount : (count || 0);
     const posts = await Promise.all((data || []).map((post: any) => mapPostData(post, userId)));
-    const totalPages = Math.ceil((count || 0) / limit);
+    const totalPages = Math.ceil(finalCount / limit);
+
     return { posts: posts as PostListItem[], totalPages };
 };
 
@@ -89,21 +135,22 @@ export const getPostBySlug = async (slug: string, userId?: string): Promise<Post
     const { data, error } = await supabase
         .from('posts')
         .select(`
-            id, author, title, slug, excerpt, content, category_id, cover_image, published, 
-            featured, created_at, updated_at, like_count, comment_count,
-            author (id, username, display_name, avatar_url),
-            categories (name, slug),
-            post_tags (tags (name, slug))
+            *,
+            author:profiles!posts_author_fkey (id, username, display_name, avatar_url),
+            categories (id, name, slug),
+            post_tags (
+                tags (id, name, slug)
+            )
         `)
         .eq('slug', slug)
         .eq('published', true)
         .single();
+
     if (error) {
         if (error.code === 'PGRST116') return null; // Not found
         throw error;
     }
-    if (!data) return null;
-    return await mapPostData(data, userId) as PostDetails;
+    return await mapPostData(data, userId);
 };
 
 // Get a single post by ID (for edit mode, includes drafts)
@@ -111,57 +158,60 @@ export const getPostById = async (id: string): Promise<PostDetails> => {
     const { data, error } = await supabase
         .from('posts')
         .select(`
-            id, author, title, slug, excerpt, content, category_id, cover_image, 
-            published, featured, created_at, updated_at, like_count, comment_count,
-            author (username, display_name, avatar_url),
-            categories (name, slug),
-            post_tags (tags (id, name, slug))
+            *,
+            author:profiles!posts_author_fkey (id, username, display_name, avatar_url),
+            categories (id, name, slug),
+            post_tags (
+                tags (id, name, slug)
+            )
         `)
         .eq('id', id)
         .single();
-    if (error) throw error;
-    if (!data) throw new Error("Post not found");
 
-    const post = await mapPostData(data);
-    post.user_has_liked = undefined;
-    return post as PostDetails;
+    if (error) throw error;
+    return await mapPostData(data);
 };
 
-// Get all posts by a specific author (for dashboard)
-export const getAuthorPosts = async (authorId: string): Promise<Array<{ id: string; title: string; slug: string; published: boolean; created_at: string; like_count: number; comment_count: number }>> => {
-    const { data, error } = await supabase
-        .from('posts')
-        .select(`
-            id, title, slug, published, created_at, like_count, comment_count
-        `)
-        .eq('author', authorId)
-        .order('created_at', { ascending: false });
-    if (error) throw error;
-    return data;
-};
-
+// --- CREATE / UPDATE / DELETE ---
 // Create a new post
-export const createPost = async (post: PostInput & { author: string }): Promise<PostDetails> => {
-    const { data, error } = await supabase
+export const createPost = async (post: CreatePostPayload & { author: string }): Promise<PostDetails> => {
+    // 1. Extract tags from payload (they go to a separate table)
+    const { tags, ...postData } = post;
+    
+    // 2. Insert post
+    const { data: newPost, error } = await supabase
         .from('posts')
-        .insert(post)
+        .insert(postData)
         .select('id')
         .single();
+
     if (error) throw error;
-    if (!data) throw new Error('Post creation failed');
-    return await getPostById(data.id);
+
+    // 3. Handle Tags
+    if (tags && tags.length > 0) {
+        await updatePostTags(newPost.id, tags);
+    }
+
+    // 4. Return the full post details
+    return await getPostById(newPost.id);
 };
 
 // Update a post
-export const updatePost = async (id: string, updates: Partial<PostDetails>): Promise<PostDetails> => {
+export const updatePost = async (id: string, payload: UpdatePostPayload, tags?: string[]): Promise<PostDetails> => {
+    const { tags: _, ...updates } = payload;
     const { data, error } = await supabase
         .from('posts')
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select('id')
         .single();
+
     if (error) throw error;
-    if (!data) throw new Error('Post update failed');
+
+    if (tags !== undefined) {
+        await updatePostTags(id, tags);
+    }
+
     return await getPostById(data.id);
 };
 
@@ -173,54 +223,24 @@ export const deletePost = async (id: string) => {
 
 // --- TAGS MANAGEMENT ---
 // Update tags associated with a post
-export const updatePostTags = async (postId: string, tagIds: string[]) => {
+export const updatePostTags = async (postId: string, tagNames: string[]) => {
     // 1. Delete all existing tags for this post
     const { error: deleteError } = await supabase
         .from('post_tags')
         .delete()
         .eq('post_id', postId);
     if (deleteError) throw deleteError;
-    if (tagIds.length === 0) return; // No new tags to add
 
-    // 2. Insert new tags
-    const newTags = tagIds.map(tag_id => ({ post_id: postId, tag_id }));
-    const { error: insertError } = await supabase
-        .from('post_tags')
-        .insert(newTags);
-    if (insertError) throw insertError;
-};
+    if (tagNames.length === 0) return; // No new tags to add
 
-// --- ADMIN ONLY ---
-// Get all posts (including drafts, for admin dashboard)
-export const getAllPosts = async (
-    page = 1,
-    limit = 10,
-    search = '',
-    categoryId?: number,
-    tagId?: number,
-    authorId?: string,
-    userId?: string,
-): Promise<{ posts: PostDetails[]; totalPages: number }> => {
-    let query = supabase
-        .from('posts')
-        .select(`
-            id, author, title, slug, excerpt, content, category_id, 
-            cover_image, published, featured, created_at, updated_at, like_count, comment_count,
-            author (username, display_name, avatar_url),
-            categories (name, slug),
-            post_tags (tags (id, name, slug))
-        `, { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range((page - 1) * limit, page * limit - 1);
+    const { data: existingTags } = await supabase.from('tags').select('id, name').in('name', tagNames);
+    
+    if (!existingTags) return;
 
-    if (search) query = query.ilike('title', `%${search}%`);
-    if (categoryId) query = query.eq('category_id', categoryId);
-    if (tagId) query = query.eq('post_tags.tag_id', tagId);
-    if (authorId) query = query.eq('author', authorId);
-
-    const { data, error, count } = await query;
-    if (error) throw error;
-    const posts = await Promise.all((data || []).map((post: any) => mapPostData(post, userId)));
-    const totalPages = Math.ceil((count || 0) / limit);
-    return { posts: posts as PostDetails[], totalPages };
+    const newTags = existingTags.map(t => ({ post_id: postId, tag_id: t.id }));
+    
+    if (newTags.length > 0) {
+        const { error: insertError } = await supabase.from('post_tags').insert(newTags);
+        if (insertError) throw insertError;
+    }
 };

@@ -1,14 +1,28 @@
-import React, { useEffect } from "react";
-import { useSelector } from "react-redux";
-import type { RootState } from "@/store";
+import { createContext, useContext, type ReactNode } from "react";
+import { useTheme } from "@/hooks/useTheme";
 
-export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-    const { mode } = useSelector((state: RootState) => state.theme);
+type Theme = "dark" | "light";
 
-    useEffect(() => {
-        const root = document.documentElement;
-        root.classList.toggle("dark", mode === "dark");
-    }, [mode]);
+type ThemeProviderProps = {
+    children: ReactNode;
+};
 
-    return <>{children}</>;
+const ThemeProviderContext = createContext<{ theme: Theme } | undefined>(undefined);
+
+export function ThemeProvider({ children }: ThemeProviderProps) {
+    const { mode } = useTheme();
+
+    return (
+        <ThemeProviderContext.Provider value={{ theme: mode }}>
+            {children}
+        </ThemeProviderContext.Provider>
+    );
+};
+
+export const useThemeContext = () => {
+    const context = useContext(ThemeProviderContext);
+    if (context === undefined) {
+        throw new Error("useThemeContext must be used within a ThemeProvider");
+    }
+    return context;
 };

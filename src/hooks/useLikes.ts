@@ -12,7 +12,7 @@ export const useLikes = () => {
     const userId = useSelector((state: RootState) => state.auth.user?.id);
     const currentPost = useSelector((state: RootState) => state.posts.currentPost);
 
-    // Derive like count and isLiked from currentPost
+    // Derive state safely
     const count = currentPost?.like_count ?? 0;
     const isLiked = currentPost?.user_has_liked ?? false;
 
@@ -23,21 +23,24 @@ export const useLikes = () => {
         }
 
         if (!currentPost) {
-            toast.error("No post is currently loaded.");
             return;
         };
 
         const postId = currentPost.id;
         const newIsLiked = !isLiked;
 
+        // 1. Optimistic Update (Immediate UI change)
         dispatch(toggleCurrentPostLike(newIsLiked));
+
         try {
+            // 2. API Call
             if (newIsLiked) {
                 await addLike(postId, userId);
             } else {
                 await removeLike(postId, userId);
             }
         } catch (error: any) {
+            // 3. Revert on failure
             dispatch(toggleCurrentPostLike(!newIsLiked));
             toast.error(error.message || "Failed to update like status.");
         }

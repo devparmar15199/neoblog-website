@@ -1,72 +1,72 @@
-import React, { useState } from "react";
-import { useSelector } from "react-redux";
-import { Link } from "react-router-dom";
-import type { RootState } from "@/store";
-import { useComments } from "@/hooks/useComments";
+import { useState } from "react";
 import { Button } from "../ui/Button";
 import { Textarea } from "../ui/Textarea";
+import { useComments } from "@/hooks/useComments";
+import { useAuth } from "@/hooks/useAuth";
+import { SendHorizontal } from "lucide-react";
 import { LoadingSpinner } from "../ui/LoadingSpinner";
-import { MessageCircle } from "lucide-react";
-import toast from "react-hot-toast";
+import { Link } from "react-router-dom";
 
 interface CommentFormProps {
   postId: string;
 }
 
 export const CommentForm: React.FC<CommentFormProps> = ({ postId }) => {
-  const { user, profile } = useSelector((state: RootState) => state.auth);
-  const { addComment } = useComments(postId);
-  const [newComment, setNewComment] = useState("");
+  const [content, setContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { addComment } = useComments(postId);
+  const { user } = useAuth();
 
-  const handleAddComment = async (e: React.FormEvent) => {
+  if (!user) {
+    return (
+      <div className="p-6 bg-muted/30 rounded-lg text-center border border-dashed">
+        <p className="text-muted-foreground text-sm mb-3">
+          Join the conversation by signing in.
+        </p>
+        <Link to="/auth?mode=login">
+          <Button variant="outline" size="sm">Log In to Comment</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !newComment.trim()) return;
-    setIsSubmitting(true);
+    if (!content.trim()) return;
 
+    setIsSubmitting(true);
     try {
       await addComment({
         post_id: postId,
         author: user.id,
-        content: newComment.trim(),
-        parent_id: null,
+        content: content.trim(),
+        parent_id: undefined,
       });
-      setNewComment("");
-      toast.success("Comment added successfully!");
-    } catch (error) {
-      console.error("Add comment failed:", error);
-      toast.error("Failed to add comment.");
+      setContent("");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (!user) {
-    return (
-      <p className="text-center text-muted-foreground p-4 border rounded-md">
-        <Link to="/auth" className="text-primary hover:underline font-medium">Sign in</Link> to join the discussion.
-      </p>
-    );
-  }
-
   return (
-    <form onSubmit={handleAddComment} className="space-y-3">
+    <form onSubmit={handleSubmit} className="space-y-3">
       <Textarea
-        placeholder={`Commenting as ${profile?.username || 'User'}...`}
-        value={newComment}
-        onChange={(e) => setNewComment(e.target.value)}
-        rows={3}
+        placeholder="Write a thoughtful comment..."
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        className="min-h-[100px] resize-y focus-visible:ring-primary/50"
         required
-        disabled={isSubmitting}
       />
-      <Button
-        type="submit"
-        icon={MessageCircle}
-        // className="h-12 font-bold"
-        disabled={isSubmitting || newComment.trim().length === 0}
-      >
-        {isSubmitting ? <LoadingSpinner size="sm" /> : "Post Comment"}
-      </Button>
+      <div className="flex justify-end">
+        <Button
+          type="submit"
+          disabled={isSubmitting || !content.trim()}
+          className="gap-2"
+        >
+          {isSubmitting ? <LoadingSpinner size="sm" /> : <SendHorizontal className="size-4" />}
+          Post Comment
+        </Button>
+      </div>
     </form>
   );
 };

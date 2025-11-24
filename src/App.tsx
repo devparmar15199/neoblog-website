@@ -1,51 +1,88 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
+
+// Layouts
 import { Layout } from "./components/layout/Layout";
 import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 import { AdminRoute } from "./components/layout/AdminRoute";
-import { Home } from "./pages/Home";
-import { AuthPage } from "./pages/AuthPage";
-import { ProfileSettings } from "./pages/ProfileSettings";
-import { ProfilePage } from "./pages/ProfilePage";
-import { Dashboard } from "./pages/Dashboard";
-import { PostsList } from "./pages/PostsList";
-import { PostDetail } from "./pages/PostDetail";
-import { CreateEditPost } from "./pages/CreateEditPost";
-import { AdminDashboard } from "./pages/AdminDashboard";
+import { PublicOnlyRoute } from "./components/layout/PublicOnlyRoute";
 import { RootRedirect } from "./components/layout/RootRedirect";
 
+// Auth Pages
+import { AuthPage } from "./pages/auth/AuthPage";
+
+// Public Pages
+import { Home } from "./pages/public/Home";
+import { PostDetail } from "./pages/public/PostDetail";
+import { ProfileView } from "./pages/public/ProfileView";
+
+// User Pages
+import { UserDashboard } from "./pages/user/UserDashboard";
+import { CreateEditPost } from "./pages/user/CreateEditPost";
+import { UserSettings } from "./pages/user/UserSettings";
+
+// Admin Pages
+import { AdminLayout } from "./pages/admin/AdminLayout";
+import { AdminDashboard } from "./pages/admin/AdminDashboard";
+import { AdminUserList } from "./pages/admin/AdminUserList";
+import { AdminPostManager } from "./pages/admin/AdminPostManager";
+import { AdminTaxonomyManager } from "./pages/admin/AdminTaxonomyManager";
+
+// Hooks
+import { useTheme } from "./hooks/useTheme";
+
 function App() {
+  // Initialize theme
+  useTheme();
+
   return (
     <BrowserRouter>
+      <Toaster position="top-center" reverseOrder={false} />
+
       <Routes>
         <Route path="/" element={<Layout />}>
+
+          {/* 1. Root Redirect (Handles logic for /, redirects Admin/User appropriately) */}
           <Route index element={<RootRedirect />} />
 
-          {/* Public Routes */}
-          <Route path="auth" element={<AuthPage />} />
-          <Route path="posts" element={<PostsList />} />
+          {/* 2. Public Only Routes (Login/Register) */}
+          {/* If logged in, these redirect to Dashboard or Admin */}
+          <Route element={<PublicOnlyRoute />}>
+            <Route path="auth" element={<AuthPage />} />
+          </Route>
+
+          {/* 3. Public Routes (Accessible by everyone) */}
+          <Route path="search" element={<Home />} />
           <Route path="posts/:slug" element={<PostDetail />} />
-          <Route path="user/:username" element={<ProfilePage />} />
+          <Route path="profile/:username" element={<ProfileView />} />
 
-          {/* Standard Protected Routes */}
+          {/* 4. User Protected Routes */}
           <Route element={<ProtectedRoute />}>
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="profile" element={<ProfileSettings />} />
-            <Route path="posts/create" element={<CreateEditPost />} />
-            <Route path="posts/edit/:id" element={<CreateEditPost />} />
+            <Route path="dashboard" element={<UserDashboard />} />
+            <Route path="settings" element={<UserSettings />} />
+            <Route path="create-post" element={<CreateEditPost />} />
+            <Route path="edit-post/:id" element={<CreateEditPost />} />
           </Route>
 
-          {/* Admin Protected Routes */}
+          {/* 5. Admin Protected Routes */}
           <Route element={<AdminRoute />}>
-            <Route path="admin" element={<AdminDashboard />} />
+            <Route path="admin" element={<AdminLayout />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="users" element={<AdminUserList />} />
+              <Route path="posts" element={<AdminPostManager />} />
+              <Route path="taxonomy" element={<AdminTaxonomyManager />} />
+            </Route>
           </Route>
 
-          {/* 404 Not Found Page */}
-          <Route path='*' element={
-            <div className="p-10 text-center">
-              <h1 className="text-4xl font-bold">404</h1>
-              <p>Page Not Found</p>
+          {/* 404 Fallback */}
+          <Route path="*" element={
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+              <h1 className="text-6xl font-bold text-primary">404</h1>
+              <p className="text-xl text-muted-foreground mt-2">Page Not Found</p>
+              <a href="/" className="mt-4 underline hover:text-primary">Return Home</a>
             </div>
           } />
+
         </Route>
       </Routes>
     </BrowserRouter>

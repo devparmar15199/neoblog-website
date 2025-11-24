@@ -1,28 +1,36 @@
-import React from 'react';
 import { Heart } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useLikes } from '@/hooks/useLikes';
+import { cn } from '@/lib/utils';
 
-export const LikeButton: React.FC = () => {
-    const { count, isLiked, toggleLike, userId } = useLikes();
+interface LikeButtonProps {
+    variant?: "ghost" | "default" | "outline";
+    size?: "sm" | "lg" | "default" | "icon";
+}
+
+export const LikeButton: React.FC<LikeButtonProps> = ({ variant = "ghost", size = "sm" }) => {
+    const { count, isLiked, toggleLike } = useLikes();
+
     return (
         <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleLike}
-            disabled={!userId} // Disable if not logged in
-            className="group px-2 py-1 h-auto text-sm transition-colors duration-200 hover:bg-red-100 dark:hover:bg-red-900/40"
-            aria-label={isLiked ? "Unlike post" : "Like post"}
+            variant={variant}
+            size={size}
+            onClick={(e) => {
+                e.stopPropagation();
+                toggleLike();
+            }}
+            className={cn(
+                "gap-2 transition-colors",
+                isLiked && "text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+            )}
         >
             <Heart
-                className={`size-5 transition-transform duration-200 ${isLiked
-                        ? 'fill-red-500 text-red-500 group-hover:scale-110'
-                        : 'text-muted-foreground group-hover:text-red-500'
-                    }`}
+                className={cn(
+                    "size-4 transition-transform group-active:scale-75",
+                    isLiked && "fill-current"
+                )}
             />
-            <span className={`ml-1 font-semibold ${isLiked ? 'text-red-500' : 'text-muted-foreground'}`}>
-                {count}
-            </span>
+            <span className="min-w-[1ch] text-left">{count}</span>
         </Button>
     );
 };

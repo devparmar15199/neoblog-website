@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "@/store";
 import { setTheme, toggleTheme } from "@/store/slices/themeSlice";
@@ -7,33 +7,27 @@ export const useTheme = () => {
     const dispatch = useDispatch();
     const { mode } = useSelector((state: RootState) => state.theme);
 
-    // Sync theme with localStorage and document class
+    // Sync theme with document class and localStorage whenever 'mode' changes
     useEffect(() => {
-        const savedMode = localStorage.getItem("theme") as "light" | "dark" | null;
+        const root = window.document.documentElement;
 
-        // On mount: restore from localStorage or system preference
-        if (savedMode) {
-            dispatch(setTheme(savedMode));
-        } else if (window.matchMedia("(prefers-color-scheme: dark").matches) {
-            dispatch(setTheme("dark"));
-        }
+        // Remove the old class and add the new one
+        root.classList.remove("light", "dark");
+        root.classList.add(mode);
 
-        // Apply theme class to document
-        document.documentElement.classList.toggle("dark", mode === "dark");
-    }, [dispatch, mode]);
+        // Persist to localStorage
+        localStorage.setItem("theme", mode);
 
-    // Toggle theme and persist
-    const toggle = () => {
-        const newMode = mode === "light" ? "dark" : "light";
+    }, [mode]);
+
+    // Handlers
+    const toggle = useCallback(() => {
         dispatch(toggleTheme());
-        localStorage.setItem("theme", newMode);
-    };
+    }, [dispatch]);
 
-    // Set theme explicitly
-    const set = (newMode: "light" | "dark") => {
+    const set = useCallback((newMode: "light" | "dark") => {
         dispatch(setTheme(newMode));
-        localStorage.setItem("theme", newMode);
-    };
+    }, [dispatch]);
 
     return { mode, toggle, set };
 };

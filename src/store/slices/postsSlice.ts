@@ -38,6 +38,11 @@ const postsSlice = createSlice({
                 state.currentPost.like_count += isLiking ? 1 : -1;
             }
         },
+        toggleCurrentPostBookmark: (state, action: PayloadAction<boolean>) => {
+            if (state.currentPost) {
+                state.currentPost.user_has_bookmarked = action.payload;
+            }
+        },
         addPost: (state, action: PayloadAction<PostListItem>) => {
             state.posts.unshift(action.payload);
         },
@@ -66,6 +71,7 @@ export const {
     updatePost,
     deletePost,
     toggleCurrentPostLike,
+    toggleCurrentPostBookmark,
     setLoading,
     setError
 } = postsSlice.actions;

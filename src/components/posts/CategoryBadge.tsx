@@ -1,15 +1,31 @@
-import React from "react";
+import { Badge } from "../ui/Badge";
+import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 interface CategoryBadgeProps {
-  name: string;
+  category: { id: number; name: string; slug: string } | null;
+  className?: string;
 }
 
-export const CategoryBadge: React.FC<CategoryBadgeProps> = ({ name }) => {
+export const CategoryBadge = ({ category, className }: CategoryBadgeProps) => {
+  const navigate = useNavigate();
+
+  if (!category) return null;
+
   return (
-    <span
-      className="bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full shadow-sm tracking-wide transition-colors"
+    <Badge
+      variant="secondary"
+      className={cn(
+        "cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors",
+        className
+      )}
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        navigate(`/?category=${category.id}`);
+      }}
     >
-      {name}
-    </span>
+      {category.name}
+    </Badge>
   );
 };

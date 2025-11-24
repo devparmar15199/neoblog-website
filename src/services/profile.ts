@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Profile } from "@/types";
+import type { Profile, PostListItem } from "@/types";
 
 // Get a single public profile by username
 export const getProfileByUsername = async (username: string): Promise<Profile> => {
@@ -8,25 +8,50 @@ export const getProfileByUsername = async (username: string): Promise<Profile> =
         .select('*')
         .eq('username', username)
         .single();
+
     if (error) throw error;
     return data as Profile;
 };
 
-// Get all published posts by a specific author's username
-export const getPostsByAuthorUsername = async (username: string): Promise<Array<{ id: string; title: string; slug: string; published: boolean; created_at: string; like_count: number; comment_count: number }>> => {
+// Get all published posts by a specific author
+// We fetch enough data to render a standard PostCard
+export const getPostsByAuthorUsername = async (username: string): Promise<PostListItem[]> => {
     // 1. Get the author's ID first
     const profile = await getProfileByUsername(username);
+    if (!profile) throw new Error('Profile not found');
+
     const authorId = profile.id;
 
-    // 2. Query the posts table using the author ID (published only)
+    // 2. Query posts
     const { data, error } = await supabase
         .from('posts')
         .select(`
-            id, title, slug, published, created_at, like_count, comment_count
+            id, title, slug, excerpt, cover_image, created_at, like_count, comment_count,
+            author:profiles!posts_author_fkey (id, username, display_name, avatar_url),
+            categories (id, name, slug),
+            post_tags (
+                tags (id, name, slug)
+            )
         `)
         .eq('author', authorId)
         .eq('published', true)
         .order('created_at', { ascending: false });
+
     if (error) throw error;
-    return data;
+
+    // 3. Flatten tags similar to main post service
+    const posts = (data || []).map((post: any) => {
+        const mapped = { ...post };
+        if (mapped.author) {
+            mapped.profiles = mapped.author;
+            delete mapped.author;
+        }
+        if (mapped.post_tags) {
+            mapped.tags = mapped.post_tags.map((pt: any) => pt.tags).filter(Boolean);
+            delete mapped.post_tags;
+        }
+        return mapped;
+    });
+
+    return posts as PostListItem[];
 };

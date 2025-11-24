@@ -15,6 +15,8 @@ import {
     updateCategory,
     deleteCategory,
     getCategoryBySlug,
+    type CreateCategoryPayload,
+    type UpdateCategoryPayload
 } from "@/services/categories";
 import type { Category } from "@/types";
 import toast from "react-hot-toast";
@@ -23,19 +25,18 @@ export const useCategories = () => {
     const dispatch = useDispatch();
     const { categories, loading, error } = useSelector((state: RootState) => state.categories);
 
-    // Fetch categories only if not already loaded
+    // Fetch categories only if not already loaded (simple caching)
     useEffect(() => {
         if (categories.length > 0) return;
 
-        dispatch(setLoading(true));
         const fetchCategories = async () => {
+            dispatch(setLoading(true));
             try {
                 const data = await getCategories();
                 dispatch(setCategories(data));
             } catch (error: any) {
                 const message = error.message || 'Failed to fetch categories';
                 dispatch(setError(message));
-                toast.error(message);
             } finally {
                 dispatch(setLoading(false));
             }
@@ -44,7 +45,8 @@ export const useCategories = () => {
         fetchCategories();
     }, [dispatch, categories.length]);
 
-    const handleCreateCategory = useCallback(async (newCategory: Omit<Category, 'id'>): Promise<Category> => {
+    // Admin Action: Create
+    const handleCreateCategory = useCallback(async (newCategory: CreateCategoryPayload): Promise<Category> => {
         dispatch(setLoading(true));
         try {
             dispatch(setError(null));
@@ -53,7 +55,7 @@ export const useCategories = () => {
             toast.success(`Category "${createdCategory.name}" created!`);
             return createdCategory;
         } catch (error: any) {
-            const errorMessage = error.message || 'Failed to create category (Admin access required?)';
+            const errorMessage = error.message || 'Failed to create category';
             dispatch(setError(errorMessage));
             toast.error(errorMessage);
             throw error;
@@ -62,7 +64,8 @@ export const useCategories = () => {
         }
     }, [dispatch]);
 
-    const handleUpdateCategory = useCallback(async (id: number, updates: Partial<Omit<Category, 'id'>>): Promise<Category> => {
+    // Admin Action: Update
+    const handleUpdateCategory = useCallback(async (id: number, updates: UpdateCategoryPayload): Promise<Category> => {
         dispatch(setLoading(true));
         try {
             dispatch(setError(null));
@@ -71,7 +74,7 @@ export const useCategories = () => {
             toast.success(`Category "${updatedCategory.name}" updated!`);
             return updatedCategory;
         } catch (error: any) {
-            const errorMessage = error.message || 'Failed to update category (Admin access required?)';
+            const errorMessage = error.message || 'Failed to update category';
             dispatch(setError(errorMessage));
             toast.error(errorMessage);
             throw error;
@@ -80,6 +83,7 @@ export const useCategories = () => {
         }
     }, [dispatch]);
 
+    // Admin Action: Delete
     const handleDeleteCategory = useCallback(async (id: number): Promise<void> => {
         dispatch(setLoading(true));
         try {
@@ -88,7 +92,7 @@ export const useCategories = () => {
             dispatch(deleteCategoryAction(id));
             toast.success(`Category deleted successfully!`);
         } catch (error: any) {
-            const errorMessage = error.message || 'Failed to delete category (Admin access required?)';
+            const errorMessage = error.message || 'Failed to delete category';
             dispatch(setError(errorMessage));
             toast.error(errorMessage);
             throw error;
@@ -97,12 +101,13 @@ export const useCategories = () => {
         }
     }, [dispatch]);
 
+    // Public Action: Get Single
     const handleGetCategoryBySlug = useCallback(async (slug: string): Promise<Category> => {
         try {
             const category = await getCategoryBySlug(slug);
             return category;
         } catch (error: any) {
-            const message = error.message || `Category with slug "${slug}" not found`;
+            const message = error.message || `Category not found`;
             toast.error(message);
             throw error;
         }

@@ -1,4 +1,4 @@
-import React from 'react';
+import { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { Navigate, Outlet } from 'react-router-dom';
 import type { RootState } from '@/store';
@@ -6,28 +6,32 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import toast from 'react-hot-toast';
 
 export const AdminRoute = () => {
-    const { profile, loading: authLoading } = useSelector((state: RootState) => state.auth);
+    const { profile, loading } = useSelector((state: RootState) => state.auth);
 
-    if (authLoading) {
+    useEffect(() => {
+        if (!loading && profile && profile.role !== 'admin') {
+            toast.error("Unauthorized: Admin access required.");
+        }
+    }, [loading, profile]);
+
+    if (loading) {
         return (
-            <div className="flex justify-center items-center h-[calc(100vh-200px)]">
+            <div className="flex justify-center items-center h-[60vh]">
                 <LoadingSpinner size="lg" />
             </div>
         );
     }
 
+    // 1. Not logged in -> Go to Login
     if (!profile) {
-        // Not logged in at all
-        toast.error("Please sign in.");
         return <Navigate to="/auth" replace />;
     }
-    
+
+    // 2. Logged in but NOT Admin -> Go to User Dashboard
     if (profile.role !== 'admin') {
-        // Logged in, but not an admin
-        toast.error("You are not authorized to view this page.");
         return <Navigate to="/dashboard" replace />;
     }
 
-    // Logged in and IS an admin
+    // 3. Is Admin -> Render Route
     return <Outlet />;
 };

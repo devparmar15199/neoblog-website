@@ -1,15 +1,23 @@
-import React from "react";
+import { Badge } from "../ui/Badge";
+import { useNavigate } from "react-router-dom";
 
 interface TagBadgeProps {
-  name: string;
+  tag: { id: number; name: string; slug: string };
 }
 
-export const TagBadge: React.FC<TagBadgeProps> = ({ name }) => {
+export const TagBadge = ({ tag }: TagBadgeProps) => {
+  const navigate = useNavigate();
+
   return (
-    <span
-        className="bg-accent text-accent-foreground text-xs font-medium px-2 py-0.5 rounded-full hover:bg-accent/80 transition-colors"
+    <Badge
+      variant="outline"
+      className="text-xs font-normal cursor-pointer hover:border-primary hover:text-primary transition-colors"
+      onClick={(e) => {
+        e.stopPropagation();
+        navigate(`/?tag=${tag.id}`);
+      }}
     >
-      {name}
-    </span>
+      #{tag.name}
+    </Badge>
   );
 };

@@ -9,6 +9,7 @@ export const getNotifications = async (userId: string): Promise<Notification[]> 
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(50); // Limit to latest 50 notifications
+
     if (error) throw error;
     return data as Notification[];
 };
@@ -19,6 +20,7 @@ export const markNotificationAsRead = async (notificationId: string) => {
         .from('notifications')
         .update({ is_read: true })
         .eq('id', notificationId);
+
     if (error) throw error;
 };
 
@@ -29,6 +31,7 @@ export const markAllNotificationsAsRead = async (userId: string) => {
         .update({ is_read: true })
         .eq('user_id', userId)
         .eq('is_read', false);  // Only update unread notifications
+
     if (error) throw error;
 };
 
@@ -38,7 +41,13 @@ export const subscribeToNotifications = (userId: string, callback: (payload: any
         .channel(`notifications:${userId}`)
         .on(
             'postgres_changes',
-            { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+            {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'notifications',
+                filter: `user_id=eq.${userId}`
+            },
             callback
-        ).subscribe();
+        )
+        .subscribe();
 };

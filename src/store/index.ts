@@ -1,6 +1,16 @@
-import { configureStore } from "@reduxjs/toolkit";
-import { persistStore, persistReducer } from "redux-persist";
+import { configureStore, combineReducers } from "@reduxjs/toolkit";
+import {
+    persistStore,
+    persistReducer,
+    FLUSH,
+    REHYDRATE,
+    PAUSE,
+    PERSIST,
+    PURGE,
+    REGISTER
+} from "redux-persist";
 import storage from "redux-persist/lib/storage";
+
 import authReducer from "./slices/authSlice";
 import postsReducer from "./slices/postsSlice";
 import commentsReducer from "./slices/commentsSlice";
@@ -9,57 +19,54 @@ import categoriesReducer from "./slices/categoriesSlice";
 import tagsReducer from "./slices/tagsSlice";
 import notificationsReducer from "./slices/notificationsSlice";
 import usersReducer from "./slices/usersSlice";
+import socialReducer from "./slices/socialSlice";
 
-const persistConfig = {
-    key: 'root',
-    storage,
-    whitelist: ['auth', 'theme', 'categories', 'tags'],
-};
+// 1. Create the root reducer independently
+const rootReducer = combineReducers({
+    // --- Persisted Slices ---
+    // We persist 'profile' so the user sees their avatar immediately
+    auth: persistReducer(
+        { key: 'auth', storage, whitelist: ['profile'] },
+        authReducer
+    ),
 
-// Separate persist reducers
-const persistedAuthReducer = persistReducer(
-    // { ...persistConfig, key: 'auth', whitelist: ['user', 'profile'] },
-    { ...persistConfig, key: 'auth', whitelist: ['user', 'profile'] },
-    authReducer
-);
+    theme: persistReducer(
+        { key: 'theme', storage },
+        themeReducer
+    ),
 
-const persistedThemeReducer = persistReducer(
-    { ...persistConfig, key: 'theme' },
-    themeReducer
-);
+    categories: persistReducer(
+        { key: 'categories', storage, whitelist: ['categories'] },
+        categoriesReducer
+    ),
 
-const persistedCategoriesReducer = persistReducer(
-    { ...persistConfig, key: 'categories', whitelist: ['categories'] },
-    categoriesReducer
-);
+    tags: persistReducer(
+        { key: 'tags', storage, whitelist: ['tags'] },
+        tagsReducer
+    ),
 
-const persistedTagsReducer = persistReducer(
-    { ...persistConfig, key: 'tags', whitelist: ['tags'] },
-    tagsReducer
-);
-
-const rootReducer = {
-    auth: persistedAuthReducer,
+    // --- Non-Persisted Slices (Always fresh on reload) ---
     posts: postsReducer,
     comments: commentsReducer,
     notifications: notificationsReducer,
-    theme: persistedThemeReducer,
-    categories: persistedCategoriesReducer,
-    tags: persistedTagsReducer,
     users: usersReducer,
-};
+    social: socialReducer,
+});
 
+// 2. Configure Store
 export const store = configureStore({
     reducer: rootReducer,
-    // Fix the serializability check to correctly exclude persist actions
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
             serializableCheck: {
-                ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE', 'persist/REGISTER', 'persist/PURGE', 'persist/FLUSH'],
+                // Use the imported constants to ensure all persist actions are ignored correctly
+                ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
             },
         }),
 });
 
 export const persistor = persistStore(store);
+
+// 3. Export Types
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
