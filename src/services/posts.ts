@@ -130,6 +130,54 @@ export const getPosts = async (
     return { posts: posts as PostListItem[], totalPages };
 };
 
+// --- READ POSTS (ADMIN) ---
+// Fetches ALL posts (including drafts) with granular filtering
+export const getAllPosts = async (
+  page = 1,
+  limit = 10,
+  search = '',
+  categoryId?: number,
+  tagId?: number,
+  authorId?: string,
+  userId?: string,
+): Promise<{ posts: PostDetails[]; totalPages: number }> => {
+  
+  let query = supabase
+    .from('posts')
+    .select(`
+      *,
+      author:profiles!posts_author_fkey (id, username, display_name, avatar_url),
+      categories (id, name, slug),
+      post_tags (
+        tags (id, name, slug)
+      )
+    `, { count: 'exact' })
+    .order('created_at', { ascending: false });
+
+  // 1. Search (Standard ILIKE since RPC usually hides drafts)
+  if (search) {
+    query = query.ilike('title', `%${search}%`);
+  }
+
+  // 2. Filters
+  if (categoryId) query = query.eq('category_id', categoryId);
+  if (authorId) query = query.eq('author', authorId);
+  if (tagId) query = query.eq('post_tags.tag_id', tagId);
+
+  // 3. Pagination
+  const from = (page - 1) * limit;
+  const to = page * limit - 1;
+  query = query.range(from, to);
+
+  const { data, error, count } = await query;
+  if (error) throw error;
+
+  const posts = await Promise.all((data || []).map((post: any) => mapPostData(post, userId)));
+  const totalPages = Math.ceil((count || 0) / limit);
+
+  return { posts, totalPages };
+};
+
 // Get a single post by slug (published only)
 export const getPostBySlug = async (slug: string, userId?: string): Promise<PostDetails | null> => {
     const { data, error } = await supabase
