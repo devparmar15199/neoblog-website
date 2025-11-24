@@ -16,11 +16,7 @@ const mapPostData = async (post: any, userId?: string): Promise<PostDetails> => 
 
     // 2. Flatten Tags
     if (mapped.post_tags) {
-        mapped.post_tags = mapped.post_tags.map((postTag: any) => ({
-            id: postTag.tags?.id,
-            name: postTag.tags?.name,
-            slug: postTag.tags?.slug
-        })).filter((tag: any) => tag.id);
+        mapped.post_tags = mapped.post_tags.filter((postTag: any) => postTag.tags != null);
     } else {
         mapped.post_tags = [];
     }
@@ -282,7 +278,6 @@ export const updatePostTags = async (postId: string, tagNames: string[]) => {
     if (tagNames.length === 0) return; // No new tags to add
 
     const { data: existingTags } = await supabase.from('tags').select('id, name').in('name', tagNames);
-    
     if (!existingTags) return;
 
     const newTags = existingTags.map(t => ({ post_id: postId, tag_id: t.id }));

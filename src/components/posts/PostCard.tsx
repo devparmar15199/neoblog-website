@@ -72,7 +72,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                     {post.post_tags && post.post_tags.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mt-2">
                             {post.post_tags.slice(0, 3).map((pt: any) => (
-                                <TagBadge key={pt.tags.id} tag={pt.tags} />
+                               pt.tags && <TagBadge key={pt.tags.id} tag={pt.tags} />
                             ))}
                             {post.post_tags.length > 3 && (
                                 <span className="text-xs text-muted-foreground self-center">+{post.post_tags.length - 3}</span>

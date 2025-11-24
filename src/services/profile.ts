@@ -42,14 +42,16 @@ export const getPostsByAuthorUsername = async (username: string): Promise<PostLi
     // 3. Flatten tags similar to main post service
     const posts = (data || []).map((post: any) => {
         const mapped = { ...post };
+
         if (mapped.author) {
             mapped.profiles = mapped.author;
             delete mapped.author;
         }
+
         if (mapped.post_tags) {
-            mapped.tags = mapped.post_tags.map((pt: any) => pt.tags).filter(Boolean);
-            delete mapped.post_tags;
+            mapped.post_tags = mapped.post_tags.filter((pt: any) => pt.tags !== null);
         }
+        
         return mapped;
     });
 
